@@ -10,7 +10,7 @@ logo_path = f"data:image/png;base64,{encoded_image}"
 
 # === Constants ===
 FIXED_COST_PER_LB = 13044792 / 17562606
-TRANSPORT_COST_PER_LB_PER_MILE = 0.02
+TRANSPORT_COST_PER_LB_PER_MILE = 0.01 #Updated to 0.01 per Patty's request
 DONATED_COST = 0.04
 
 # === Load data and compute cost estimates ===
@@ -111,10 +111,12 @@ st.title("Cost Calculator")
 with st.form("calculator_form"):
     program = st.selectbox("1. Which program is this?", list(lbs_per_hh.keys()))
     hh = st.number_input("2. How many households are served?", min_value=1, value=350)
-    produce_lb = st.number_input("3. How many lbs of produce per HH?", min_value=0.0, value=0.0)
-    purchased_lb = st.number_input("4. How many lbs of purchased per HH?", min_value=0.0, value=0.0)
-    donated_lb = st.number_input("5. How many lbs of donated per HH?", min_value=0.0, value=0.0)
-    miles = st.number_input("6. How many miles will this delivery travel?", min_value=0.0, value=30.0)
+    num_deliveries = st.number_input("3. How many deliveries will this program recieve annually?", min_value=1, value=1)
+    produce_lb = st.number_input("4. How many lbs of produce per HH?", min_value=0.0, value=0.0)
+    purchased_lb = st.number_input("5. How many lbs of purchased per HH?", min_value=0.0, value=0.0)
+    donated_lb = st.number_input("6. How many lbs of donated per HH?", min_value=0.0, value=0.0)
+    miles = st.number_input("7. How many miles will this delivery travel?", min_value=0.0, value=30.0)
+    
 
     submitted = st.form_submit_button("Calculate & Estimate")
 
@@ -132,12 +134,13 @@ if submitted:
     purch_total = purchased_lb * hh
     don_total = donated_lb * hh
     total_lbs = prod_total + purch_total + don_total
+    total_annual_lbs = total_lbs * num_deliveries
 
     base_cost = prod_total * produce_cost + purch_total * purchased_cost + don_total * DONATED_COST
     fixed_cost = total_lbs * FIXED_COST_PER_LB
     transport_cost = total_lbs * miles * TRANSPORT_COST_PER_LB_PER_MILE
     delivery_cost = base_cost + transport_cost
-    total_cost = base_cost + fixed_cost + transport_cost
+    total_cost = fixed_cost + delivery_cost * num_deliveries
 
     prod_cost_hh = produce_lb * produce_cost
     purch_cost_hh = purchased_lb * purchased_cost
@@ -157,10 +160,10 @@ if submitted:
 ---
 
 #### <strong>Calculator Outputs</strong>
-<p><strong>Total Weight:</strong> {total_lbs:.2f} lbs</p>
-<p><strong>Base Food Cost:</strong> ${base_cost:.2f}</p>
-<p><strong>Fixed Cost (@ {FIXED_COST_PER_LB:.4f}/lb):</strong> ${fixed_cost:.2f}</p>
-<p><strong>Transport Cost (@ $0.02/lb/mile):</strong> ${transport_cost:.2f}</p>
+<p><strong>Total Weight Per Delivery:</strong> {total_lbs:.2f} lbs</p>
+<p><strong>Base Food Cost Per Delivery:</strong> ${base_cost:.2f}</p>
+<p><strong>Annual Fixed (Setup) Cost (@ {FIXED_COST_PER_LB:.4f}/lb):</strong> ${fixed_cost:.2f}</p>
+<p><strong>Transport Cost Per Delivery (@ $0.01/lb/mile):</strong> ${transport_cost:.2f}</p>
 
 ---
 
@@ -172,7 +175,8 @@ if submitted:
 ---
 
 #### <strong>Final Outputs</strong>
-<p><strong>Delivery Cost (Food + Transport):</strong> ${delivery_cost:.2f}</p>
-<p><strong>Total Cost:</strong> ${total_cost:.2f}</p>
-<p><strong>Blended Cost per lb:</strong> ${total_cost / total_lbs:.4f}</p>
+<p><strong>Total Cost Per Delivery:</strong> ${delivery_cost:.2f}</p>
+<p><strong>Total Annual Cost:</strong> ${total_cost:.2f}</p>
+<p><strong>Total Annual Lbs Distributed:</strong> ${total_annual_lbs:.2f}</p>
+<p><strong>Blended Cost per lb:</strong> ${total_cost / total_annual_lbs:.4f}</p>
 """, unsafe_allow_html=True)
