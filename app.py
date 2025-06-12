@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import base64
 
-# === Load logo ===
+# === Load Logo ===
 with open("FSD LOGO.png", "rb") as f:
     encoded_image = base64.b64encode(f.read()).decode("utf-8")
 logo_path = f"data:image/png;base64,{encoded_image}"
@@ -13,11 +13,12 @@ FIXED_COST_PER_LB = 13044792 / 17562606
 TRANSPORT_COST_PER_LB_PER_MILE = 0.01
 DONATED_COST = 0.04
 
-# Default Cost Guardrails
+# === Default Cost Guardrails ===
+# If the calculated ratios yield N/a or Negative values, these take the place to preserve model functionality
 DEFAULT_PURCHASED_COST_PER_LB = 1.00
 DEFAULT_PRODUCE_COST_PER_LB = 0.75
 
-# === Load data ===
+# === Load Data ===
 quarterly_path = 'Final_Quarterly_Data.xlsx'
 quarter_df = pd.read_excel(quarterly_path)
 
@@ -39,7 +40,7 @@ for prog, values in lbs_per_hh_model.items():
         'donated_ratio': (values['donated'] or 0) / total if total else 0
     }
 
-# === Apply ratios to historical data ===
+# === Apply Ratios to Historical Data ===
 quarter_df = quarter_df[quarter_df['Cost'] > 1]
 estimated_weights = quarter_df.apply(
     lambda row: pd.Series({
@@ -51,7 +52,7 @@ estimated_weights = quarter_df.apply(
 )
 quarter_df = pd.concat([quarter_df, estimated_weights], axis=1)
 
-# === Aggregate by program ===
+# === Aggregate by Program ===
 program_agg = quarter_df.groupby('PROGRAM').agg({
     'Cost': 'sum',
     'Weight': 'sum',
@@ -60,7 +61,19 @@ program_agg = quarter_df.groupby('PROGRAM').agg({
     'Estimated_Donated_Weight': 'sum'
 }).reset_index()
 
-# === Backsolve costs ===
+# === Backsolve Costs ===
+# This is the main source of errors - known limitations include: 
+# 1. Negative Produce $/Lb calculation for Agency
+# 2. Zero Purchased $/Lb calcuation for BP and PP
+
+# Current workarounds include:
+# 1. A set $/Lb price floor to prevent N/a and Negative or Zero Values
+# 2. Default $/Lb for Produce and Purchased to apply in all Programs when dynamic historical backsolving fails
+
+# === Recommended Improvements: ===
+# 1. Replace Backsolving with Constrained Optimization 
+# ie. Minimize error by building a linear optimization model to find closest realistic Cost per Lb
+
 results = []
 for _, row in program_agg.iterrows():
     prog = row['PROGRAM']
@@ -91,10 +104,10 @@ for _, row in program_agg.iterrows():
         y = max(0.5, min(1.2, y))
     elif rprod > 0 and rpurch == 0:
         x = (blended_cost - rdon * DONATED_COST) / rprod
-        #Setting a Price Floor for Purchased Costs / Pound
+        # Setting a Price Floor for Purchased Costs / Pound
         x = max(x, 0.10)
     else: 
-        #Validating that X for Purchased Cost/Lb is a non-zero value
+        # Validating that X for Purchased Cost/Lb is a non-zero value
         x = 0.10 if x is None else max(x, 0.10)
 
     results.append({
