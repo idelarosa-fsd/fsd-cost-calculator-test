@@ -79,6 +79,8 @@ for _, row in program_agg.iterrows():
         best_error = float('inf')
         for candidate_y in candidate_ys:
             candidate_x = (blended_cost - rpurch * candidate_y - rdon * DONATED_COST) / rprod
+            #Setting a Price Floor for Purchased Costs / Pound
+            candidate_x = max(candidate_x, 0.10)
             reconstructed = rprod * candidate_x + rpurch * candidate_y + rdon * DONATED_COST
             error = abs(reconstructed - blended_cost)
             if error < best_error:
@@ -89,6 +91,8 @@ for _, row in program_agg.iterrows():
         y = max(0.5, min(1.2, y))
     elif rprod > 0 and rpurch == 0:
         x = (blended_cost - rdon * DONATED_COST) / rprod
+        #Setting a Price Floor for Purchased Costs / Pound
+        x = max(x, 0.10)
 
     results.append({
         'PROGRAM': prog,
