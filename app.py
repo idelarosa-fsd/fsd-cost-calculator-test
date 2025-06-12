@@ -108,18 +108,20 @@ st.title("Cost Calculator")
 
 with st.form("calculator_form"):
     program = st.selectbox("1. Which program is this?", list(lbs_per_hh_model.keys()))
-    hh = st.number_input("2. How many households are served?", min_value=1, value=350)
-    num_deliveries = st.number_input("3. Annual number of deliveries?", min_value=1, value=12)
+    hh = st.number_input("2. How many households are served per delivery?", min_value=1, value=350)
+    deliveries = st.number_input("3. How many annual deliveries will this program receive?", min_value=1, value=12)
 
-    produce_lb = st.number_input("4. Produce lbs per HH?", min_value=0.0, value=float(lbs_per_hh_model[program]['produce']))
-    purchased_lb = st.number_input("5. Purchased lbs per HH?", min_value=0.0, value=float(lbs_per_hh_model[program]['purchased']))
-    donated_lb = st.number_input("6. Donated lbs per HH?", min_value=0.0, value=float(lbs_per_hh_model[program]['donated']))
-    miles = st.number_input("7. Miles per delivery?", min_value=0.0, value=30.0)
+    produce_lb = st.number_input("4. How many lbs of produce per HH?", min_value=0.0, value=float(lbs_per_hh_model[program]['produce']))
+    purchased_lb = st.number_input("5. How many lbs of purchased per HH?", min_value=0.0, value=float(lbs_per_hh_model[program]['purchased']))
+    donated_lb = st.number_input("6. How many lbs of donated per HH?", min_value=0.0, value=float(lbs_per_hh_model[program]['donated']))
+    miles = st.number_input("7. How many miles will this delivery travel?", min_value=0.0, value=30.0)
 
     submitted = st.form_submit_button("Calculate & Estimate")
 
 if submitted:
     match = cost_estimates[cost_estimates['PROGRAM'] == program]
+    agg_row = program_agg[program_agg['PROGRAM'] == program].iloc[0]
+
     if match.empty:
         produce_cost = DEFAULT_PRODUCE_COST_PER_LB
         purchased_cost = DEFAULT_PURCHASED_COST_PER_LB
@@ -127,7 +129,12 @@ if submitted:
         row = match.iloc[0]
         if program == 'BP':
             purchased_cost = 1.27
-            produce_cost = row['estimated_produce_cost_per_lb']
+            if pd.notna(row['estimated_produce_cost_per_lb']):
+                produce_cost = row['estimated_produce_cost_per_lb']
+            else:
+                blended = agg_row['Cost'] / agg_row['Weight'] if agg_row['Weight'] > 0 else 0
+                r = 1 / 3
+                produce_cost = (blended - (r * 1.27 + r * DONATED_COST)) / r
         else:
             produce_cost = row['estimated_produce_cost_per_lb']
             purchased_cost = row['estimated_purchased_cost_per_lb']
@@ -136,38 +143,47 @@ if submitted:
     purch_total = purchased_lb * hh
     don_total = donated_lb * hh
     total_lbs = prod_total + purch_total + don_total
-    total_annual_lbs = total_lbs * num_deliveries
 
     base_cost = prod_total * produce_cost + purch_total * purchased_cost + don_total * DONATED_COST
     fixed_cost = total_lbs * FIXED_COST_PER_LB
     transport_cost = total_lbs * miles * TRANSPORT_COST_PER_LB_PER_MILE
     delivery_cost = base_cost + transport_cost
-    total_cost = fixed_cost + delivery_cost * num_deliveries
+    total_cost = delivery_cost * deliveries + fixed_cost
+    total_annual_lbs = total_lbs * deliveries
+    blended_annual_cost_per_lb = total_cost / total_annual_lbs if total_annual_lbs else 0
 
     st.markdown(f"""
 ### Calculation Completed
 
-#### User Inputs
-- Program: {program}
-- Households: {hh}
-- Deliveries per Year: {num_deliveries}
-- Produce: {produce_lb} lbs/HH
-- Purchased: {purchased_lb} lbs/HH
-- Donated: {donated_lb} lbs/HH
-- Distance: {miles} miles
+#### <strong>User Inputs</strong>
+<p><strong>Program:</strong> {program}</p>
+<p><strong>Households per Delivery:</strong> {hh}</p>
+<p><strong>Deliveries per Year:</strong> {deliveries}</p>
+<p><strong>Produce per HH:</strong> {produce_lb}</p>
+<p><strong>Purchased per HH:</strong> {purchased_lb}</p>
+<p><strong>Donated per HH:</strong> {donated_lb}</p>
+<p><strong>Distance:</strong> {miles} miles</p>
 
 ---
 
-#### Calculator Outputs
-- Total Weight per Delivery: {total_lbs:.2f} lbs
-- Base Food Cost per Delivery: ${base_cost:.2f}
-- Annual Fixed Cost (@ {FIXED_COST_PER_LB:.4f}/lb): ${fixed_cost:.2f}
-- Transport Cost per Delivery: ${transport_cost:.2f}
+#### <strong>Calculator Outputs</strong>
+<p><strong>Total Weight per Delivery:</strong> {total_lbs:.2f} lbs</p>
+<p><strong>Base Food Cost per Delivery:</strong> ${base_cost:.2f}</p>
+<p><strong>Annual Fixed (Setup) Cost (@ {FIXED_COST_PER_LB:.4f}/lb):</strong> ${fixed_cost:.2f}</p>
+<p><strong>Transport Cost per Delivery (@ $0.01/lb/mile):</strong> ${transport_cost:.2f}</p>
 
 ---
 
-#### Final Outputs
-- Total Annual Cost: ${total_cost:.2f}
-- Total Annual Lbs Distributed: {total_annual_lbs:.2f} lbs
-- Blended Cost per lb: ${total_cost / total_annual_lbs:.4f}
+#### <strong>Food Cost Per lb Per HH</strong>
+<p><strong>Produce:</strong> {produce_lb} lbs × ${produce_cost:.3f} = ${produce_lb * produce_cost:.2f} per HH</p>
+<p><strong>Purchased:</strong> {purchased_lb} lbs × ${purchased_cost:.3f} = ${purchased_lb * purchased_cost:.2f} per HH</p>
+<p><strong>Donated:</strong> {donated_lb} lbs × ${DONATED_COST:.2f} = ${donated_lb * DONATED_COST:.2f} per HH</p>
+
+---
+
+#### <strong>Final Outputs</strong>
+<p><strong>Total Cost per Delivery (Food + Transport):</strong> ${delivery_cost:.2f}</p>
+<p><strong>Total Annual Cost:</strong> ${total_cost:.2f}</p>
+<p><strong>Total Annual Lbs Distributed:</strong> {total_annual_lbs:.2f} lbs</p>
+<p><strong>Blended Annual Cost per lb:</strong> ${blended_annual_cost_per_lb:.4f}</p>
 """, unsafe_allow_html=True)
