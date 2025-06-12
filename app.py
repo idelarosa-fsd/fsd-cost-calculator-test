@@ -93,6 +93,8 @@ for _, row in program_agg.iterrows():
         x = (blended_cost - rdon * DONATED_COST) / rprod
         #Setting a Price Floor for Purchased Costs / Pound
         x = max(x, 0.10)
+    else: 
+        x = max(x, 0.10)
 
     results.append({
         'PROGRAM': prog,
