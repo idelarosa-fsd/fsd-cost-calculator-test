@@ -96,6 +96,18 @@ for _, row in program_agg.iterrows():
 
 cost_estimates = pd.DataFrame(results)
 
+# === Guardrail for missing cost estimates ===
+
+# Set default floors (adjust these based on your business knowledge)
+DEFAULT_PURCHASED_COST_PER_LB = 1.00  # conservative floor estimate
+DEFAULT_PRODUCE_COST_PER_LB = 0.75    # conservative floor estimate
+
+# Fill missing purchased cost
+cost_estimates['estimated_purchased_cost_per_lb'] = cost_estimates['estimated_purchased_cost_per_lb'].fillna(DEFAULT_PURCHASED_COST_PER_LB)
+
+# Fill missing produce cost
+cost_estimates['estimated_produce_cost_per_lb'] = cost_estimates['estimated_produce_cost_per_lb'].fillna(DEFAULT_PRODUCE_COST_PER_LB)
+
 # === Calculator UI ===
 st.markdown(f"<div style='text-align: center;'><img src='{logo_path}' style='height: 140px; margin-bottom: 20px;'></div>", unsafe_allow_html=True)
 st.title("Cost Calculator")
