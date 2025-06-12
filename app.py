@@ -94,7 +94,7 @@ for _, row in program_agg.iterrows():
         #Setting a Price Floor for Purchased Costs / Pound
         x = max(x, 0.10)
     else: 
-        x = max(x, 0.10)
+        x = 0.10 if x is None else max(x, 0.10)
 
     results.append({
         'PROGRAM': prog,
